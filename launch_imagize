@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# ./launch_imagize loading.png "#5bc236"
+
+if [[ -z $1 ]]
+then
+  echo A file name is required.
+  exit 1
+fi
+
+if [[ -z $2 ]]
+then
+  echo A color code must be supplied to fill in the image
+  exit 1
+fi
+
+if [ ! -f $1 ]
+then
+  echo "Image file does not exit"
+  exit 1
+fi
+
+filename=$1
+filename_without_extension="${filename%.*}"
+sizes=(1242x2208 750x1334 2208x1242 640x960 640x1136 768x1024 1536x2048 1024x768 2048x1536 320x480 640x960 640x1136 768x1004 1536x2008 768x1024 1536x2048 1024x748 2048x1496 1024x768 2048x1536)
+scales=('3x' '2x' '3x' '2x' '2x' '1x' '2x' '1x' '2x' '1x' '2x' '2x' '1x' '2x' '1x' '2x' '1x' '2x' '1x' '2x' )
+orientations=(portrait portrait landscape portrait portrait portrait portrait landscape landscape portrait portrait portrait portrait portrait portrait portrait landscape landscape landscape landscape)
+subtypes=(736h 667h 736h '' retina4 '' '' '' '' '' '' retina4 '' '' '' '' '' '' '' '')
+idioms=(iphone iphone iphone iphone iphone ipad ipad ipad ipad iphone iphone iphone ipad ipad ipad ipad ipad ipad ipad ipad)
+min_versions=('8.0' '8.0' '8.0' '7.0' '7.0' '7.0' '7.0' '7.0' '7.0' '' '' '' '' '' '' '' '' '' '' '')
+extents=('full-screen' 'full-screen' 'full-screen' 'full-screen' 'full-screen' 'full-screen' 'full-screen' 'full-screen' 'full-screen' 'full-screen' 'full-screen' 'full-screen' 'to-status-bar' 'to-status-bar' 'full-screen' 'full-screen' 'to-status-bar' 'to-status-bar' 'full-screen' 'full-screen')
+
+rm -rf LaunchImage.launchimage
+mkdir LaunchImage.launchimage
+jsonContent=()
+for i in "${!sizes[@]}"
+do
+  if [[ ${scales[$i]} != '1x' ]]
+  then
+    photo_filename=${filename_without_extension}_${sizes[$i]}@${scales[$i]}.png
+    convert $filename -size ${sizes[$i]} xc:$2 +swap -gravity center -crop ${sizes[$i]}+0+0 -composite LaunchImage.launchimage/${photo_filename}
+  else
+    photo_filename=${filename_without_extension}_${sizes[$i]}.png
+    convert $filename -size ${sizes[$i]} xc:$2 +swap -gravity center -crop ${sizes[$i]}+0+0 -composite LaunchImage.launchimage/${photo_filename}
+  fi
+
+  splitSizes=()  
+  sizeEl=$(echo ${sizes[$i]})
+  IFS='x'; declare -a splitSizes=($sizeEl)
+  space=''
+  IFS='';
+  scaleEl=$(echo ${scales[$i]})
+  scaleNum="${scaleEl/x/$space}"
+  scaleFactor=$((scaleNum + 0))
+  x=$((splitSizes[0] / $scaleFactor))
+  y=$((splitSizes[1] / $scaleFactor))
+  
+  elContent=("\"idiom\" : \"${idioms[$i]}\"" "\"extent\": \"${extents[$i]}\"" "\"orientation\": \"${orientations[$i]}\"" "\"scale\" : \"${scales[$i]}\"" "\"filename\": \"${photo_filename}\"")
+  if [[ "${subtypes[$i]}" != "" ]]
+  then
+    elContent+=("\"subtype\":\"${subtypes[$i]}\"")
+  fi
+  
+  if [[ "${min_versions[$i]}" != "" ]]
+  then
+    elContent+=("\"minimum-system-version\":\"${min_versions[$i]}\"")
+  fi
+  
+  IFS=,; elContentJoin="${elContent[*]}"
+  jsonContent+=("{$elContentJoin}")
+done
+
+IFS=,; imagesJSON="${jsonContent[*]}"
+echo "{\"images\" : [${imagesJSON}], \"info\": {\"version\": 1, \"author\": \"xcode\"}}" > LaunchImage.launchimage/Contents.json

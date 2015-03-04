@@ -1,0 +1,50 @@
+#!/bin/bash
+
+if [[ -z $1 ]]
+then
+  echo A file name is required.
+  exit 1
+fi
+
+if [ ! -f $1 ]
+then
+  echo "Image file does not exit"
+  exit 1
+fi
+
+filename=$1
+filename_without_extension="${filename%.*}"
+sizes=(29x29 58x58 87x87 80x80 120x120 57x57 114x114 120x120 180x180 29x29 58x58 40x40 80x80 50x50 100x100 72x72 144x144 76x76 152x152 120x120)
+scales=('1x' '2x' '3x' '2x' '3x' '1x' '2x' '2x' '3x' '1x' '2x' '1x' '2x' '1x' '2x' '1x' '2x' '1x' '2x' '1x'  )
+devices=('iphone' 'iphone' 'iphone' 'iphone' 'iphone' 'iphone' 'iphone' 'iphone' 'iphone' 'ipad' 'ipad' 'ipad' 'ipad' 'ipad' 'ipad' 'ipad' 'ipad' 'ipad' 'ipad' 'car')
+rm -rf app_icon
+mkdir app_icon
+jsonContent=()
+for i in "${!sizes[@]}"
+do
+  if [[ ${scales[$i]} != '1x' ]]
+  then
+    photo_filename=${filename_without_extension}_${sizes[$i]}@${scales[$i]}.png
+    convert $filename -resize ${sizes[$i]} app_icon/${photo_filename}
+  else
+    photo_filename=${filename_without_extension}_${sizes[$i]}.png
+    convert $filename -resize ${sizes[$i]} app_icon/${photo_filename}
+  fi
+
+  splitSizes=()  
+  sizeEl=$(echo ${sizes[$i]})
+  IFS='x'; declare -a splitSizes=($sizeEl)
+  space=''
+  IFS='';
+  scaleEl=$(echo ${scales[$i]})
+  scaleNum="${scaleEl/x/$space}"
+  scaleFactor=$((scaleNum + 0))
+  x=$((splitSizes[0] / $scaleFactor))
+  y=$((splitSizes[1] / $scaleFactor))
+  
+  jsonContent+=("{\"idiom\" : \"${devices[$i]}\", \"size\" : \"${x}x${y}\", \"scale\" : \"${scales[$i]}\", \"filename\": \"${photo_filename}\"}")
+done
+
+
+IFS=,; imagesJSON="${jsonContent[*]}"
+echo "{\"images\" : [${imagesJSON}], \"info\": {\"version\": 1, \"author\": \"xcode\"}}" > app_icon/Contents.json
